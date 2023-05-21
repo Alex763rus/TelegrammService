@@ -4,7 +4,7 @@
     {
         public PostResultCode postResultCode { get; set; }
         
-        public int apiId { get; set; }
+        public long apiId { get; set; }
         public string description { get; set; } = "";
         
     }

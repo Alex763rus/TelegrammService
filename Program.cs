@@ -1,19 +1,14 @@
 using TelegrammService.model;
+using TelegrammService.model.rest;
 using TelegrammService.service;
 using WebApplication1.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-
+//builder.WebHost.UseUrls("http://localhost:8032");
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
 var app = builder.Build();
-
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -29,17 +24,36 @@ app.MapControllers();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+MessageCounterService messageCounterService = new MessageCounterService();
 TelegrammSenderService telegrammService = new TelegrammSenderService();
-app.MapPost("/api/autentificationClient", (Autentification source) =>
+telegrammService.setMessageCounterService(messageCounterService);
+
+app.MapPost("/api/autentification/start", (Autentification source) =>
 {
     return telegrammService.autentificationClientAsync(source.apiId, source.apiHash, source.phoneNumber);
 });
-app.MapPost("/api/autentificationSetCode", (Autentification source) =>
+app.MapPost("/api/autentification/code", (Autentification source) =>
 {
     return telegrammService.autentificationSetCodeAsync(source.apiId, source.phoneNumber, source.code);
 });
-app.MapPost("/api/sendMessage", (SendMessage source) =>
+app.MapPost("/api/message/send", (SendMessage source) =>
 {
     return telegrammService.sendMessage(source.apiId, source.chatId, source.message);
+});
+app.MapGet("/api/statistic", () =>
+{
+    return messageCounterService.getClientStatistic();
+});
+app.MapPost("/api/client/delete", (Client client) =>
+{
+    return telegrammService.deleteClient(client.apiId);
+});
+app.MapPost("/api/client/limit/setup", (ClientLimitSetup clientLimitSetup) =>
+{
+    return messageCounterService.setLimit(clientLimitSetup.apiId, clientLimitSetup.limit);
+});
+app.MapPost("/api/client/counter/reset", (Client client) =>
+{
+    return messageCounterService.resetCounter(client.apiId);
 });
 app.Run();

@@ -5,7 +5,7 @@
 
         public int apiId { get; set; }
 
-        public int chatId { get; set; }
+        public long chatId { get; set; }
         
         public string message { get; set; } = "";
     }

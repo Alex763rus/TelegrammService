@@ -13,6 +13,8 @@ namespace TelegrammService.service
     public class TelegrammSenderService
     {
         private Dictionary<int, TelegramClient> clientDictionary;
+        
+        private MessageCounterService messageCounterService;
         private int tmpApiId = 0;
         private string tmpHash = "";
         private TelegramClient tmpTelegramClient;
@@ -49,6 +51,19 @@ namespace TelegrammService.service
             }
         }
 
+        public async Task<PostResult> deleteClient(int apiId)
+        {
+            if (clientDictionary.ContainsKey(apiId))
+            {
+                clientDictionary.Remove(apiId);
+                return PostResultService.getOkPostResult(apiId, "Client with apiId = " + apiId + " was deleted");
+            }
+            else
+            {
+                return PostResultService.getErrorPostResult(apiId, "Client with apiId = " + apiId + " not a found");
+            }
+        }
+
         public async Task<PostResult> autentificationSetCodeAsync(int apiId, string phoneNumber, string code)
         {
             try
@@ -67,9 +82,8 @@ namespace TelegrammService.service
                 return PostResultService.getErrorPostResult(apiId, ex.Message);
             }
         }
-
-
-        public async Task<PostResult> sendMessage(int apiId, int chatId,  string message)
+        
+        public async Task<PostResult> sendMessage(int apiId, long chatId,  string message)
         {
             try
             {
@@ -82,6 +96,10 @@ namespace TelegrammService.service
                 {
                     return PostResultService.getOkPostResult(apiId, "Client not authorized! Use api autentificationClient");
                 }
+                if (!client.IsConnected)
+                {
+                    await client.ConnectAsync(true);
+                }
                 var contacts = await client.GetContactsAsync();
                 var user = contacts.Users
                     .Where(x => x.GetType() == typeof(TLUser))
@@ -91,7 +109,12 @@ namespace TelegrammService.service
                 {
                     return PostResultService.getErrorPostResult(apiId, "ChatId not found in contact for api. " + chatId);
                 }
+                if (messageCounterService.checkLimitExceeded(apiId))
+                {
+                    return PostResultService.getErrorPostResult(apiId, "ChatId limit message is exceeded:" + chatId + ", limit:" + messageCounterService.getLimit(apiId));
+                }
                 await client.SendMessageAsync(new TLInputPeerUser() { UserId = user.Id }, message);
+                
                 return PostResultService.getOkPostResult(apiId, "Message was send to:" + chatId);
             }
             catch (Exception ex)
@@ -100,5 +123,9 @@ namespace TelegrammService.service
             }
         }
 
+        public void setMessageCounterService(MessageCounterService messageCounterService)
+        {
+            this.messageCounterService = messageCounterService;
+        }
     }
 }
