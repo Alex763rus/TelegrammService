@@ -1,6 +1,6 @@
 ﻿namespace TelegrammService.model
 {
-    public class Client
+    public class MyClient
     {
         public int apiId { get; set; }
 

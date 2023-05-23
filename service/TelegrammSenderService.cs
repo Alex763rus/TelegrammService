@@ -1,49 +1,37 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿
 using TelegrammService.model;
-using TeleSharp.TL;
-using TeleSharp.TL.Messages;
-using TLSharp.Core;
+using WTelegram;
+using System;
+using System.Linq;
+using TL;
 
 namespace TelegrammService.service
 {
     public class TelegrammSenderService
     {
-        private Dictionary<int, TelegramClient> clientDictionary;
-        
         private MessageCounterService messageCounterService;
-        private int tmpApiId = 0;
-        private string tmpHash = "";
-        private TelegramClient tmpTelegramClient;
+        private static ClientConfig clientConfig;
+        private Client client;
 
-        public TelegrammSenderService() {
-            clientDictionary = new Dictionary<int, TelegramClient>();
+        public TelegrammSenderService()
+        {
+            clientConfig = new ClientConfig();
         }
 
-        public async Task<PostResult> autentificationClientAsync(int apiId, string apiHash, string phoneNumber)
+        public async Task<PostResult> autentificationClientAsync(int apiId, string apiHash, string phoneNumber, string sessionPath)
         {
-            if (clientDictionary.ContainsKey(apiId))
-            {
-                var client = clientDictionary[apiId];
-                if (!client.IsUserAuthorized())
-                {
-                    clientDictionary.Remove(apiId);
-                }
-                else
-                {
-                    return PostResultService.getOkPostResult(apiId, "Client already exists and authorized");
-                }
-            }
             try
             {
-                tmpApiId = apiId;
-                tmpTelegramClient = new TelegramClient(apiId, apiHash);
-                await tmpTelegramClient.ConnectAsync();
-                tmpHash = await tmpTelegramClient.SendCodeRequestAsync(phoneNumber);
-                return PostResultService.getOkPostResult(apiId, "Code sent successfully");
+                clientConfig.apiId = apiId;
+                clientConfig.apiHash = apiHash;
+                clientConfig.phoneNumber = phoneNumber;
+                clientConfig.sessionPath = sessionPath;
+
+                client = new Client(Config);
+                var myself = await client.LoginUserIfNeeded();
+                Console.WriteLine($"We are logged-in as {myself} (id {myself.id})");
+
+                return PostResultService.getOkPostResult(apiId, "Autentification successfully");
             }
             catch (Exception ex)
             {
@@ -51,71 +39,22 @@ namespace TelegrammService.service
             }
         }
 
-        public async Task<PostResult> deleteClient(int apiId)
-        {
-            if (clientDictionary.ContainsKey(apiId))
-            {
-                clientDictionary.Remove(apiId);
-                return PostResultService.getOkPostResult(apiId, "Client with apiId = " + apiId + " was deleted");
-            }
-            else
-            {
-                return PostResultService.getErrorPostResult(apiId, "Client with apiId = " + apiId + " not a found");
-            }
-        }
-
-        public async Task<PostResult> autentificationSetCodeAsync(int apiId, string phoneNumber, string code)
+        public async Task<PostResult> sendMessage(int apiId, string login, string message)
         {
             try
             {
-                if(tmpTelegramClient == null)
-                {
-                    return PostResultService.getErrorPostResult(apiId, "TelegramClient is null! Use autentificationClient");
-                }
-                string? tmpcode = code;
-                await tmpTelegramClient.MakeAuthAsync(phoneNumber, tmpHash, tmpcode);
-                clientDictionary.Add(tmpApiId, tmpTelegramClient);
-                return PostResultService.getOkPostResult(apiId, "Client was added");
-            }
-            catch (Exception ex)
-            {
-                return PostResultService.getErrorPostResult(apiId, ex.Message);
-            }
-        }
-        
-        public async Task<PostResult> sendMessage(int apiId, long chatId,  string message)
-        {
-            try
-            {
-                if (!clientDictionary.ContainsKey(apiId))
-                {
-                    return PostResultService.getErrorPostResult(apiId, "Client with apiId not a found! Use api autentificationClient");
-                }
-                var client = clientDictionary[apiId];
-                if (!client.IsUserAuthorized())
+                if (clientConfig == null)
                 {
                     return PostResultService.getOkPostResult(apiId, "Client not authorized! Use api autentificationClient");
                 }
-                if (!client.IsConnected)
-                {
-                    await client.ConnectAsync(true);
-                }
-                var contacts = await client.GetContactsAsync();
-                var user = contacts.Users
-                    .Where(x => x.GetType() == typeof(TLUser))
-                    .Cast<TLUser>()
-                    .FirstOrDefault(x => x.Id == chatId);
-                if(user == null)
-                {
-                    return PostResultService.getErrorPostResult(apiId, "ChatId not found in contact for api. " + chatId);
-                }
                 if (messageCounterService.checkLimitExceeded(apiId))
                 {
-                    return PostResultService.getErrorPostResult(apiId, "ChatId limit message is exceeded:" + chatId + ", limit:" + messageCounterService.getLimit(apiId));
+                    return PostResultService.getErrorPostResult(apiId, "ApiId limit message is exceeded:" + apiId + ", limit:" + messageCounterService.getLimit(apiId));
                 }
-                await client.SendMessageAsync(new TLInputPeerUser() { UserId = user.Id }, message);
-                
-                return PostResultService.getOkPostResult(apiId, "Message was send to:" + chatId);
+                var myself = await client.LoginUserIfNeeded();
+                var resolved = await client.Contacts_ResolveUsername(login);
+                await client.SendMessageAsync(resolved, message);
+                return PostResultService.getOkPostResult(apiId, "Message was send from:" + apiId + " to:" + login);
             }
             catch (Exception ex)
             {
@@ -127,5 +66,23 @@ namespace TelegrammService.service
         {
             this.messageCounterService = messageCounterService;
         }
+
+        static string Config(string what)
+        {
+            switch (what)
+            {
+                case "api_id": return clientConfig.apiId.ToString();    // "21994278";
+                case "api_hash": return clientConfig.apiHash;           // "127649946d135636f95e7b775f3068c7";
+                case "phone_number": return clientConfig.phoneNumber;   // "+79171688704";
+                case "password": return clientConfig.password2FA;       // if user has enabled 2FA
+                case "session_pathname": return clientConfig.sessionPath;
+                case "verification_code": 
+                    Console.Write("Code: "); return Console.ReadLine();
+                case "first_name": return "TODO";                       // if sign-up is required
+                case "last_name": return "TODO";                        // if sign-up is required
+                default: return null;                                   // let WTelegramClient decide the default config
+            }
+        }
+
     }
 }

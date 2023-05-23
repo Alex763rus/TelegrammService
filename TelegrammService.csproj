@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
     <PackageReference Include="TLSharp" Version="0.1.0.574" />
+    <PackageReference Include="WTelegramClient" Version="3.5.1" />
   </ItemGroup>
 
 </Project>

@@ -4,7 +4,7 @@ using TelegrammService.service;
 using WebApplication1.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
-//builder.WebHost.UseUrls("http://localhost:8032");
+builder.WebHost.UseUrls("http://localhost:8033");
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -30,29 +30,21 @@ telegrammService.setMessageCounterService(messageCounterService);
 
 app.MapPost("/api/autentification/start", (Autentification source) =>
 {
-    return telegrammService.autentificationClientAsync(source.apiId, source.apiHash, source.phoneNumber);
-});
-app.MapPost("/api/autentification/code", (Autentification source) =>
-{
-    return telegrammService.autentificationSetCodeAsync(source.apiId, source.phoneNumber, source.code);
+    return telegrammService.autentificationClientAsync(source.apiId, source.apiHash, source.phoneNumber, source.sessionPath);
 });
 app.MapPost("/api/message/send", (SendMessage source) =>
 {
-    return telegrammService.sendMessage(source.apiId, source.chatId, source.message);
+    return telegrammService.sendMessage(source.apiId, source.login, source.message);
 });
 app.MapGet("/api/statistic", () =>
 {
     return messageCounterService.getClientStatistic();
 });
-app.MapPost("/api/client/delete", (Client client) =>
-{
-    return telegrammService.deleteClient(client.apiId);
-});
 app.MapPost("/api/client/limit/setup", (ClientLimitSetup clientLimitSetup) =>
 {
     return messageCounterService.setLimit(clientLimitSetup.apiId, clientLimitSetup.limit);
 });
-app.MapPost("/api/client/counter/reset", (Client client) =>
+app.MapPost("/api/client/counter/reset", (MyClient client) =>
 {
     return messageCounterService.resetCounter(client.apiId);
 });
