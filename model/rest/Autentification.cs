@@ -7,6 +7,7 @@
         public string phoneNumber { get; set; } = "";
 
         public string sessionPath { get; set; } = "";
-        public string code { get; set; } = "";
+        public string password2FA { get; set; } = "";
+
     }
 }

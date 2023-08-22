@@ -3,12 +3,20 @@ using TelegrammService.model.rest;
 using TelegrammService.service;
 using WebApplication1.Controllers;
 
+
+ConfigService configService = new ConfigService();
+Config config = configService.getConfig();
+
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls("http://localhost:8033");
+if (!builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseUrls(config.url);
+}
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 var app = builder.Build();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -30,11 +38,20 @@ telegrammService.setMessageCounterService(messageCounterService);
 
 app.MapPost("/api/autentification/start", (Autentification source) =>
 {
-    return telegrammService.autentificationClientAsync(source.apiId, source.apiHash, source.phoneNumber, source.sessionPath);
+    return telegrammService.autentificationClientAsync(source.apiId, source.apiHash, source.phoneNumber, source.sessionPath, source.password2FA);
 });
 app.MapPost("/api/message/send", (SendMessage source) =>
 {
     return telegrammService.sendMessage(source.apiId, source.login, source.message);
+});
+app.MapPost("/api/check/channel/subscribe", (CheckSubscribe source) =>
+{
+    Console.WriteLine("check/channel/subscribe. source.apiId: " + source.apiId + ", source.channelId: " + source.channelId);
+    return telegrammService.checkSubscriber(source.apiId, source.channelId);
+});
+app.MapPost("/api/message/list/send", (SendMessages source) =>
+{
+    return telegrammService.sendMessages(source.apiId, source.logins, source.message);
 });
 app.MapGet("/api/statistic", () =>
 {
@@ -48,4 +65,5 @@ app.MapPost("/api/client/counter/reset", (MyClient client) =>
 {
     return messageCounterService.resetCounter(client.apiId);
 });
+
 app.Run();
