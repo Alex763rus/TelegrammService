@@ -11,44 +11,76 @@ namespace TelegrammService.service
     public class TelegrammSenderService
     {
         private MessageCounterService messageCounterService;
-        private static ClientConfig clientConfig;
         private Client client;
 
         public TelegrammSenderService()
         {
-            clientConfig = new ClientConfig();
         }
 
-        public async Task<PostResult> autentificationClientAsync(int apiId, string apiHash, string phoneNumber, string sessionPath, string password2FA)
+        public async Task<PostResult> init(int apiId, string apiHash)
         {
             try
             {
-                clientConfig.apiId = apiId;
-                clientConfig.apiHash = apiHash;
-                clientConfig.phoneNumber = phoneNumber;
-                clientConfig.sessionPath = sessionPath;
-                clientConfig.password2FA = password2FA;
-
-                client = new Client(Config);
-                var myself = await client.LoginUserIfNeeded();
-                Console.WriteLine($"We are logged-in as {myself} (id {myself.id})");
-
-                return PostResultService.getOkPostResult(apiId, "Autentification successfully");
+                if (client != null)
+                {
+                    return PostResultService.getOkPostResult(apiId, "Client already initialized");
+                }
+                client = new Client(apiId, apiHash);
+                return PostResultService.getOkPostResult(apiId, "Client init successfully");
             }
             catch (Exception ex)
             {
                 return PostResultService.getErrorPostResult(apiId, ex.Message);
             }
         }
-        public async Task<PostResult> checkSubscriber(int apiId, int channelId)
+
+        public async Task<PostResult> doLogin(string loginInfo)
         {
             try
             {
-                if (clientConfig == null)
+                var answer = await client.Login(loginInfo);
+                string answerText = "";
+                switch (answer)
                 {
-                    return PostResultService.getOkPostResult(apiId, "Client not authorized! Use api autentificationClient");
+                    case "verification_code": answerText = "Введите код подтверждения:"; break;
+                    case "password": answerText = "Введите облачный пароль:"; break;
+                    case "name": answerText = "John Doe"; break;
+                    default: answerText = answer; break;
                 }
-                var myself = await client.LoginUserIfNeeded();
+                if (answerText == null)
+                {
+                    answerText = "Авторизация выполнена успешно!";
+                }
+                return PostResultService.getOkPostResult(answerText);
+            }
+            catch (Exception ex)
+            {
+                return PostResultService.getErrorPostResult(0, ex.Message);
+            }
+        }
+
+        public async Task<PostResult> clientReset()
+        {
+            try
+            {
+                //Auth_ResetAuthorizations
+                //Account_ResetAuthorization
+                client.Reset(true, true);
+                return PostResultService.getOkPostResult("reset ok:");
+            }
+            catch (Exception ex)
+            {
+                return PostResultService.getErrorPostResult(0, ex.Message);
+            }
+        }
+            public async Task<PostResult> checkSubscriber(int apiId, int channelId)
+        {
+            try
+            {
+                if(client == null)
+                {
+                    return PostResultService.getErrorPostResult(apiId, "Требуется авторизация");
+                }
                 var chats = await client.Messages_GetAllChats();
                 foreach (var (id, chat) in chats.chats)
                 {
@@ -69,15 +101,14 @@ namespace TelegrammService.service
         {
             try
             {
-                if (clientConfig == null)
+                if (client == null)
                 {
-                    return PostResultService.getOkPostResult(apiId, "Client not authorized! Use api autentificationClient");
+                    return PostResultService.getErrorPostResult(apiId, "Клиент не авторизован! Требуется авторизация");
                 }
                 if (messageCounterService.checkLimitExceeded(apiId))
                 {
                     return PostResultService.getErrorPostResult(apiId, "ApiId limit message is exceeded:" + apiId + ", limit:" + messageCounterService.getLimit(apiId));
                 }
-                var myself = await client.LoginUserIfNeeded();
                 var resolved = await client.Contacts_ResolveUsername(login);
                 await client.SendMessageAsync(resolved, message);
                 return PostResultService.getOkPostResult(apiId, "Message was send from:" + apiId + " to:" + login);
@@ -92,15 +123,14 @@ namespace TelegrammService.service
         {
             try
             {
-                if (clientConfig == null || client == null)
+                if (client == null)
                 {
-                    return PostResultService.getOkPostResult(apiId, "Client not authorized! Use api autentificationClient");
+                    return PostResultService.getErrorPostResult(apiId, "Клиент не авторизован! Требуется авторизация");
                 }
                 if (messageCounterService.checkLimitExceeded(apiId))
                 {
                     return PostResultService.getErrorPostResult(apiId, "ApiId limit message is exceeded:" + apiId + ", limit:" + messageCounterService.getLimit(apiId));
                 }
-                var myself = await client.LoginUserIfNeeded();
                 StringBuilder errorMessage = new StringBuilder();
                 int countSuccessSendMessages = 0;
                 foreach (var login in logins)
@@ -139,23 +169,6 @@ namespace TelegrammService.service
         public void setMessageCounterService(MessageCounterService messageCounterService)
         {
             this.messageCounterService = messageCounterService;
-        }
-
-        static string Config(string what)
-        {
-            switch (what)
-            {
-                case "api_id": return clientConfig.apiId.ToString();
-                case "api_hash": return clientConfig.apiHash;
-                case "phone_number": return clientConfig.phoneNumber;
-                case "password": return clientConfig.password2FA;
-                case "session_pathname": return clientConfig.sessionPath;
-                case "verification_code": 
-                    Console.Write("Code: "); return Console.ReadLine();
-                case "first_name": return "TODO";
-                case "last_name": return "TODO";
-                default: return null;
-            }
         }
 
     }

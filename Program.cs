@@ -36,9 +36,18 @@ MessageCounterService messageCounterService = new MessageCounterService();
 TelegrammSenderService telegrammService = new TelegrammSenderService();
 telegrammService.setMessageCounterService(messageCounterService);
 
-app.MapPost("/api/autentification/start", (Autentification source) =>
+app.MapPost("/api/do/login", (DoLogin doLogin) =>
 {
-    return telegrammService.autentificationClientAsync(source.apiId, source.apiHash, source.phoneNumber, source.sessionPath, source.password2FA);
+    return telegrammService.doLogin(doLogin.data);
+});
+app.MapPost("/api/client/reset", () =>
+{
+    return telegrammService.clientReset();
+});
+
+app.MapPost("/api/init", (ApiHashSetup source) =>
+{
+    return telegrammService.init(source.apiId, source.apiHash);
 });
 app.MapPost("/api/message/send", (SendMessage source) =>
 {
@@ -46,7 +55,6 @@ app.MapPost("/api/message/send", (SendMessage source) =>
 });
 app.MapPost("/api/check/channel/subscribe", (CheckSubscribe source) =>
 {
-    Console.WriteLine("check/channel/subscribe. source.apiId: " + source.apiId + ", source.channelId: " + source.channelId);
     return telegrammService.checkSubscriber(source.apiId, source.channelId);
 });
 app.MapPost("/api/message/list/send", (SendMessages source) =>

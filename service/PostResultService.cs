@@ -15,6 +15,11 @@ namespace TelegrammService.service
             return getPostResult(apiId, description, PostResultCode.OK);
         }
 
+        public static PostResult getOkPostResult(string description)
+        {
+            return getOkPostResult(0, description);
+        }
+
         public static PostResult getPostResult(long apiId, string description, PostResultCode postResultCode)
         {
             PostResult postResult = new PostResult();
