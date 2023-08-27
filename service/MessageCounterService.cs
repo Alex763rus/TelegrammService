@@ -27,6 +27,11 @@ namespace TelegrammService.service
             return messageCounter.checkLimitExceeded();
         }
 
+        public bool needCheckContact(long apiId)
+        {
+            MessageCounter messageCounter = getMessageCounter(apiId);
+            return messageCounter.counter < 10;
+        }
         public int getLimit(long apiId)
         {
             return getMessageCounter(apiId).limit;

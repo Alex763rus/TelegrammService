@@ -119,6 +119,42 @@ namespace TelegrammService.service
             }
         }
 
+
+        private bool hasContact(Messages_Chats messageChats, string login)
+        {
+            foreach (var (id, chat) in messageChats.chats)
+            {
+                try
+                {
+                    if (chat.MainUsername != null && chat.MainUsername.Equals(login))
+                    {
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                }
+            }
+            return false;
+        }
+
+        private bool hasContact(Messages_Dialogs messages_Dialogs, string login)
+        {
+            foreach (var (id, chat) in messages_Dialogs.users)
+            {
+                try
+                {
+                    if (chat.MainUsername != null && chat.MainUsername.Equals(login))
+                    {
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                }
+            }
+            return false;
+        }
         public async Task<PostResult> sendMessages(int apiId, List<string> logins, string message)
         {
             try
@@ -132,14 +168,29 @@ namespace TelegrammService.service
                     return PostResultService.getErrorPostResult(apiId, "ApiId limit message is exceeded:" + apiId + ", limit:" + messageCounterService.getLimit(apiId));
                 }
                 StringBuilder errorMessage = new StringBuilder();
+                var needCheckContact = messageCounterService.needCheckContact(apiId);
+                Messages_Chats chats = null;
+                Messages_Dialogs contacts = null;
+                if (needCheckContact) {
+                    chats = await client.Messages_GetAllChats();
+                    contacts = await client.Messages_GetAllDialogs();
+                }
+
                 int countSuccessSendMessages = 0;
                 foreach (var login in logins)
                 {
                     try
                     {
-                        var resolved = await client.Contacts_ResolveUsername(login);
-                        await client.SendMessageAsync(resolved, message);
-                        ++countSuccessSendMessages;
+                        if(!needCheckContact || hasContact(chats, login) || hasContact(contacts, login))
+                        {
+                            var resolved = await client.Contacts_ResolveUsername(login);
+                            await client.SendMessageAsync(resolved, message);
+                            ++countSuccessSendMessages;
+                        }
+                        else
+                        {
+                            errorMessage.Append(login).Append(" : ").Append("с чатом, контактом отсутствует диалог").AppendLine("");
+                        }
                     }
                     catch (Exception ex)
                     {
